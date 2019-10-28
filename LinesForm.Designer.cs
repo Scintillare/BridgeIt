@@ -42,11 +42,13 @@ namespace LinesGame
             this.pbCenter.BackColor = System.Drawing.Color.Linen;
             this.pbCenter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pbCenter.Location = new System.Drawing.Point(0, 0);
+            this.pbCenter.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.pbCenter.Name = "pbCenter";
             this.pbCenter.Size = new System.Drawing.Size(700, 700);
             this.pbCenter.TabIndex = 0;
             this.pbCenter.TabStop = false;
             this.pbCenter.Paint += new System.Windows.Forms.PaintEventHandler(this.pbCenter_Paint);
+            this.pbCenter.MouseClick += new System.Windows.Forms.MouseEventHandler(this.pbCenter_MouseClick);
             // 
             // timer1
             // 
