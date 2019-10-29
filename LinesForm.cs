@@ -38,8 +38,7 @@ namespace LinesGame
             Graphics g = e.Graphics;
             g.Clear(pbCenter.BackColor);
             game.DrawBackground(g);
-//            game.drawTokens(g);
-//            game.drawPlayersLines(g);
+            game.DrawTokens(g);
         }
 
         private void timer1_Tick(object sender, EventArgs e)

@@ -34,6 +34,7 @@ namespace LinesGame
         }
     }
 
+
     public class LinesGame
     {
         private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _p1Graph;
@@ -46,12 +47,14 @@ namespace LinesGame
         private Size _borderSize; //TODO get set?
         private Rectangle[,] _p1Tokens;
         private Rectangle[,] _p2Tokens;
+        private Vertex _clickedVertex;
 
         public LinesGame(Size borderSize)
         {
             _moveCount = 0;
             _isAgainstPc = true;
             _borderSize = borderSize;
+            _clickedVertex = null;
             InitGraphs();
             InitTokens();
         }
@@ -95,14 +98,34 @@ namespace LinesGame
             return (_moveCount % 2 == 0);
         }
 
-        private Rectangle GetRectangle(Rectangle[,] input, int x, int y)
+        private Tuple<Rectangle, Vertex> ClickedRectangleAndVertex(int x, int y)
         {
+            /*Функция возвращает кортеж только если игрок выбрал фигуру своего цвета*/
             var p = new Point(x, y);
-            foreach (var rect in input)
+            if (IsFirstPlayerMove())
             {
-                if (rect.Contains(p))
+                for (var i = 0; i < _p1Tokens.GetLength(0); ++i)
                 {
-                    return rect;
+                    for (var j = 0; j < _p1Tokens.GetLength(1); ++j)
+                    {
+                        if (_p1Tokens[i, j].Contains(p))
+                        {
+                            return Tuple.Create(_p1Tokens[i, j], new Vertex(i, j));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (var i = 0; i < _p2Tokens.GetLength(0); ++i)
+                {
+                    for (var j = 0; j < _p2Tokens.GetLength(1); ++j)
+                    {
+                        if (_p1Tokens[i, j].Contains(p))
+                        {
+                            return Tuple.Create(_p1Tokens[i, j], new Vertex(i, j));
+                        }
+                    }
                 }
             }
             throw new KeyNotFoundException();
@@ -142,7 +165,7 @@ namespace LinesGame
                 }
             }
         }
-        
+
         public void DrawBackground(Graphics graphics)
         {
             _drawBorders(graphics);
@@ -168,33 +191,34 @@ namespace LinesGame
         }
 
 
-
-
         public void clickHandler(int x, int y)
         {
             try
             {
-                var rect = GetRectangle(GetAvailableTokens(), x, y);
-//                var newPoint = new Point(rect.Left, (rect.Top - rect.Bottom) / 2); BUG
-                if (ClickedToken.IsEmpty)
-                {
-//                    lines.Add(new Line(clickedToken, newPoint)); BUG
-//                    clickedToken = Point.Empty; 
-                    _moveCount += 1;
-                }
-                else
-                {
-//                    clickedToken = newPoint; BUG
-                }
+                (Rectangle, Vertex) rect, v = ClickedRectangleAndVertex(x, y).ToValueTuple();
+                _clickedVertex = null;
             }
             catch (KeyNotFoundException e)
-            {
+            {   
                 return;
             }
+
             //TODO highlight point
         }
 
 
-//        
+        private void DoMove(Vertex p1, Vertex p2)
+        {
+            //BUG
+            if (IsFirstPlayerMove())
+            {
+                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+                //TODO brake line in fake graph!!
+            }
+            else
+            {
+                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+            }
+        }
     }
 }
