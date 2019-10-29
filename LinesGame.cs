@@ -7,8 +7,8 @@ namespace LinesGame
 {
     public class Vertex
     {
-        private int Row { get; set; }
-        private int Col { get; set; }
+        public int Row;
+        public int Col;
 
         public Vertex(int row, int col)
         {
@@ -128,6 +128,7 @@ namespace LinesGame
                     }
                 }
             }
+
             throw new KeyNotFoundException();
         }
 
@@ -190,20 +191,57 @@ namespace LinesGame
                 new Point(_borderSize.Width, _borderSize.Height));
         }
 
+        public void DrawTokens(Graphics graphics)
+        {
+            SolidBrush p1b = new SolidBrush(Config.PLAYER1_COLOR);
+            SolidBrush p2b = new SolidBrush(Config.PLAYER2_COLOR);
+            foreach (var token in _p1Tokens)
+            {
+                graphics.FillEllipse(p1b, token);
+            }
+
+            foreach (var token in _p2Tokens)
+            {
+                graphics.FillEllipse(new SolidBrush(Config.PLAYER2_COLOR), token);
+            }
+
+            if (_clickedVertex == null) return;
+            var p = 2;
+            var enlargedR = IsFirstPlayerMove()
+                ? _p1Tokens[_clickedVertex.Row, _clickedVertex.Col]
+                : _p2Tokens[_clickedVertex.Row, _clickedVertex.Col];
+            enlargedR = new Rectangle(enlargedR.X - p, enlargedR.Y - p, enlargedR.Width + p*2, enlargedR.Height + p*2);
+            graphics.FillEllipse((IsFirstPlayerMove() ? p1b : p2b), enlargedR);
+        }
+
+        public void DrawLines(Graphics graphics)
+        {
+            
+        }
+
 
         public void clickHandler(int x, int y)
         {
             try
             {
-                (Rectangle, Vertex) rect, v = ClickedRectangleAndVertex(x, y).ToValueTuple();
-                _clickedVertex = null;
+                (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y).ToValueTuple();
+                if (_clickedVertex != null)
+                {
+                    if (IsFirstPlayerMove())
+                    {
+                        _p1Graph.AddEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                    }
+                    _clickedVertex = null;
+                }
+                else
+                {
+                    _clickedVertex = v;
+                }
             }
             catch (KeyNotFoundException e)
-            {   
+            {
                 return;
             }
-
-            //TODO highlight point
         }
 
 
