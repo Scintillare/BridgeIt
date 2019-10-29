@@ -1,79 +1,151 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
+using QuickGraph;
 
 namespace LinesGame
 {
-    public struct Line
+    public class Vertex
     {
-        private Point startPoint { get; set; }
-        private Point endPoint { get; set; }
-        
-        public Line(Point firstPoint, Point secondPoint)
+        private int Row { get; set; }
+        private int Col { get; set; }
+
+        public Vertex(int row, int col)
         {
-            this.startPoint = firstPoint;
-            this.endPoint = secondPoint;
+            this.Row = row;
+            this.Col = col;
+        }
+
+        public override bool Equals(object o)
+        {
+            if (ReferenceEquals(this, o)) return true;
+            if (ReferenceEquals(this, null)) return false;
+            if (ReferenceEquals(this, null)) return false;
+            if (this.GetType() != o.GetType()) return false;
+            return this.Row == ((Vertex) o).Row && this.Col == ((Vertex) o).Col;
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (this.Row * 397) ^ this.Col;
+            }
         }
     }
-    
+
     public class LinesGame
     {
-        
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _p1Graph;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _p2Graph;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _pcFakeGraph;
+        private int _moveCount;
+        private bool _isAgainstPc; // TODO 
+
+
         private Size _borderSize; //TODO get set?
-        private Rectangle[] p1_points;
-        private Rectangle[] p2_points;
-        private bool isFirstPointClicked;
-        private Point firstPoint;
-        private List<Line> lines;
-        private int moveCount;
+        private Rectangle[,] _p1Tokens;
+        private Rectangle[,] _p2Tokens;
 
         public LinesGame(Size borderSize)
         {
-            moveCount = 0;
+            _moveCount = 0;
+            _isAgainstPc = true;
             _borderSize = borderSize;
-            isFirstPointClicked = false;
-            lines = new List<Line>();
-            initPoints();
+            InitGraphs();
+            InitTokens();
         }
 
-
-        private void initPoints()
+        private void InitGraphs()
         {
-            p1_points = new Rectangle[Config.POINT_NUMBER * (Config.POINT_NUMBER + 1)];
-            p2_points = new Rectangle[(Config.POINT_NUMBER + 1) * Config.POINT_NUMBER];
+            _p1Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _p2Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            for (int r = 0; r < Config.POINT_NUMBER + 1; ++r)
+            {
+                for (int c = 0; c < Config.POINT_NUMBER; ++c)
+                {
+                    _p1Graph.AddVertex(new Vertex(r, c));
+                    _p2Graph.AddVertex(new Vertex(c, r));
+                }
+            }
+
+            if (!_isAgainstPc) return;
+            _pcFakeGraph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            for (int r = 0; r < Config.POINT_NUMBER; ++r)
+            {
+                for (int c = 0; c < (Config.POINT_NUMBER + 1); ++c)
+                {
+                    if (r + 1 != Config.POINT_NUMBER)
+                    {
+                        _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
+                            new Vertex(r + 1, c)));
+                    }
+
+                    if (c + 1 != Config.POINT_NUMBER + 1)
+                    {
+                        _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
+                            new Vertex(r, c + 1)));
+                    }
+                }
+            }
+        }
+
+        private bool IsFirstPlayerMove()
+        {
+            return (_moveCount % 2 == 0);
+        }
+
+        private Rectangle GetRectangle(Rectangle[,] input, int x, int y)
+        {
+            var p = new Point(x, y);
+            foreach (var rect in input)
+            {
+                if (rect.Contains(p))
+                {
+                    return rect;
+                }
+            }
+            throw new KeyNotFoundException();
+        }
+
+        private void InitTokens()
+        {
+            _p1Tokens = new Rectangle[(Config.POINT_NUMBER + 1), Config.POINT_NUMBER];
+            _p2Tokens = new Rectangle[Config.POINT_NUMBER, (Config.POINT_NUMBER + 1)];
 
             int cellSize = _borderSize.Width / Config.CELL_NUMBER;
             int shiftSize = cellSize * 2;
 
-            for (int pc = 0; pc < (Config.POINT_NUMBER + 1); ++pc)
+            for (int row = 0; row < _p1Tokens.GetLength(0); ++row)
             {
-                int y = cellSize + (pc * shiftSize);
-                for (int pr = 0; pr < Config.POINT_NUMBER; ++pr)
+                int y = cellSize + (row * shiftSize);
+                for (int col = 0; col < _p1Tokens.GetLength(1); ++col)
                 {
-                    int x = (pr * shiftSize) + shiftSize;
-                    p1_points[pc * Config.POINT_NUMBER + pr] = new Rectangle((x - Config.POINT_RADIUS),
+                    int x = (col * shiftSize) + shiftSize;
+                    _p1Tokens[row, col] = new Rectangle((x - Config.POINT_RADIUS),
                         (y - Config.POINT_RADIUS),
                         Config.POINT_RADIUS * 2,
                         Config.POINT_RADIUS * 2);
                 }
             }
-            for (int pc = 0; pc < Config.POINT_NUMBER; ++pc)
+
+            for (int row = 0; row < _p2Tokens.GetLength(0); ++row)
             {
-                int y = shiftSize + (pc * shiftSize);
-                for (int pr = 0; pr < (Config.POINT_NUMBER + 1); ++pr)
+                int y = shiftSize + (row * shiftSize);
+                for (int col = 0; col < _p2Tokens.GetLength(1); ++col)
                 {
-                    int x = (pr * shiftSize) + cellSize;
-                    p2_points[pc  + pr* Config.POINT_NUMBER] = new Rectangle((x - Config.POINT_RADIUS),
+                    int x = (col * shiftSize) + cellSize;
+                    _p2Tokens[row, col] = new Rectangle((x - Config.POINT_RADIUS),
                         (y - Config.POINT_RADIUS),
                         Config.POINT_RADIUS * 2,
                         Config.POINT_RADIUS * 2);
                 }
             }
         }
-
-        public void drawBackground(Graphics graphics)
+        
+        public void DrawBackground(Graphics graphics)
         {
             _drawBorders(graphics);
-
             int cellSize = _borderSize.Width / Config.CELL_NUMBER;
             Pen pen = new Pen(Config.GRID_COLOR, Config.GRID_LW);
             for (int p = 0; p <= _borderSize.Width; p += cellSize)
@@ -95,50 +167,34 @@ namespace LinesGame
                 new Point(_borderSize.Width, _borderSize.Height));
         }
 
-        public void drawPoints(Graphics graphics)
-        {
-            foreach (var rect in p1_points)
-            {
-                graphics.FillEllipse(new SolidBrush(Config.PLAYER1_COLOR), rect); //TODO FIX
-            }
 
-            foreach (var rect in p2_points)
-            {
-                graphics.FillEllipse(new SolidBrush(Config.PLAYER2_COLOR), rect); //TODO FIX
-            }
-        }
+
 
         public void clickHandler(int x, int y)
         {
-            if (isFirstPointClicked)
+            try
             {
-                lines.Add(new Line(firstPoint, getPoint(x, y)));
-                moveCount += 1;
+                var rect = GetRectangle(GetAvailableTokens(), x, y);
+//                var newPoint = new Point(rect.Left, (rect.Top - rect.Bottom) / 2); BUG
+                if (ClickedToken.IsEmpty)
+                {
+//                    lines.Add(new Line(clickedToken, newPoint)); BUG
+//                    clickedToken = Point.Empty; 
+                    _moveCount += 1;
+                }
+                else
+                {
+//                    clickedToken = newPoint; BUG
+                }
             }
-            else
+            catch (KeyNotFoundException e)
             {
-                isFirstPointClicked = true;
-                firstPoint = getPoint(x, y);
-                //TODO highlight point
+                return;
             }
+            //TODO highlight point
         }
 
-        private Point getPoint(int x, int y)
-        {
-            foreach (var VARIABLE in p1_points)
-            {
-                
-            }
-        }
 
-
-        public void drawPlayersLines(Graphics graphics)
-        {
-            foreach (var line in lines)
-            {
-                graphics.DrawLine();
-            }
-            throw new System.NotImplementedException();
-        }
+//        
     }
 }

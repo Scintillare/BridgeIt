@@ -37,9 +37,9 @@ namespace LinesGame
         {
             Graphics g = e.Graphics;
             g.Clear(pbCenter.BackColor);
-            game.drawBackground(g);
-            game.drawPoints(g);
-            game.drawPlayersLines(g);
+            game.DrawBackground(g);
+//            game.drawTokens(g);
+//            game.drawPlayersLines(g);
         }
 
         private void timer1_Tick(object sender, EventArgs e)
