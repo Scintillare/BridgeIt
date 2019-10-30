@@ -15,7 +15,7 @@ namespace LinesGame
     public partial class LinesForm : Form
     {
         private LinesGame game;
-        
+
         public LinesForm()
         {
             InitializeComponent();
@@ -39,16 +39,27 @@ namespace LinesGame
             g.Clear(pbCenter.BackColor);
             game.DrawBackground(g);
             game.DrawTokens(g);
+            game.DrawLines(g);
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
-            pbCenter.Invalidate();
+            if (!game.isGameOver)
+            {
+                pbCenter.Invalidate();
+            }
+            else
+            {
+                timer1.Stop();
+            }
         }
 
         private void pbCenter_MouseClick(object sender, MouseEventArgs e)
         {
+//            while (!game.isGameOver)
+//            {
             game.clickHandler(e.X, e.Y);
+//            }
         }
     }
 }

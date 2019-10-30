@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using QuickGraph;
+using QuickGraph.Algorithms;
+using QuickGraph.Algorithms.ShortestPath;
 
 namespace LinesGame
 {
-    public class Vertex
+    public class Vertex 
     {
         public int Row;
         public int Col;
@@ -42,6 +45,7 @@ namespace LinesGame
         private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _pcFakeGraph;
         private int _moveCount;
         private bool _isAgainstPc; // TODO 
+        public bool isGameOver;
 
 
         private Size _borderSize; //TODO get set?
@@ -51,6 +55,7 @@ namespace LinesGame
 
         public LinesGame(Size borderSize)
         {
+            isGameOver = false;
             _moveCount = 0;
             _isAgainstPc = true;
             _borderSize = borderSize;
@@ -121,9 +126,9 @@ namespace LinesGame
                 {
                     for (var j = 0; j < _p2Tokens.GetLength(1); ++j)
                     {
-                        if (_p1Tokens[i, j].Contains(p))
+                        if (_p2Tokens[i, j].Contains(p))
                         {
-                            return Tuple.Create(_p1Tokens[i, j], new Vertex(i, j));
+                            return Tuple.Create(_p2Tokens[i, j], new Vertex(i, j));
                         }
                     }
                 }
@@ -210,13 +215,32 @@ namespace LinesGame
             var enlargedR = IsFirstPlayerMove()
                 ? _p1Tokens[_clickedVertex.Row, _clickedVertex.Col]
                 : _p2Tokens[_clickedVertex.Row, _clickedVertex.Col];
-            enlargedR = new Rectangle(enlargedR.X - p, enlargedR.Y - p, enlargedR.Width + p*2, enlargedR.Height + p*2);
+            enlargedR = new Rectangle(enlargedR.X - p, enlargedR.Y - p, enlargedR.Width + p * 2,
+                enlargedR.Height + p * 2);
             graphics.FillEllipse((IsFirstPlayerMove() ? p1b : p2b), enlargedR);
         }
 
         public void DrawLines(Graphics graphics)
         {
-            
+            foreach (var edge in _p1Graph.Edges)
+            {
+                Pen pen = new Pen(Config.PLAYER1_COLOR, 5);
+                var rect1 = _p1Tokens[edge.Source.Row, edge.Source.Col];
+                var rect2 = _p1Tokens[edge.Target.Row, edge.Target.Col];
+                var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
+                var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
+                graphics.DrawLine(pen, p1, p2);
+            }
+
+            foreach (var edge in _p2Graph.Edges)
+            {
+                Pen pen = new Pen(Config.PLAYER2_COLOR, 5);
+                var rect1 = _p2Tokens[edge.Source.Row, edge.Source.Col];
+                var rect2 = _p2Tokens[edge.Target.Row, edge.Target.Col];
+                var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
+                var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
+                graphics.DrawLine(pen, p1, p2);
+            }
         }
 
 
@@ -231,7 +255,14 @@ namespace LinesGame
                     {
                         _p1Graph.AddEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
                     }
+                    else
+                    {
+                        _p2Graph.AddEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                    }
+
+                    _moveCount += 1;
                     _clickedVertex = null;
+                    isGameOver = _isGameOver();
                 }
                 else
                 {
@@ -242,6 +273,41 @@ namespace LinesGame
             {
                 return;
             }
+        }
+
+        private bool _isGameOver()
+        {
+            // BUG 1 PRIORITY
+            // так как проверка выолняяется после хода, то используется отрицание очередности ходов
+            bool earlyStop = !IsFirstPlayerMove() ? (_p1Graph.EdgeCount < 5) : (_p2Graph.EdgeCount < 5);
+            if (earlyStop) return false;
+
+            Func<UndirectedEdge<Vertex>, double> edgeCost = e => 1;
+
+            if (!IsFirstPlayerMove())
+            {
+                int rowStart = 0;
+                for (int colStart = 0; colStart < Config.POINT_NUMBER + 1; ++colStart)
+                {
+                    var tryGetPaths = _p1Graph.ShortestPathsDijkstra(edgeCost, new Vertex(rowStart, colStart));
+                    int rowEnd = Config.POINT_NUMBER + 1;
+                    for (int colEnd = 0; colEnd < Config.POINT_NUMBER + 1; ++colEnd)
+                    {
+                        IEnumerable<UndirectedEdge<Vertex>> path;
+                        if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
+                        {
+                            foreach (var edge in path)
+                            {
+                                UndirectedEdge<Vertex> a = edge;
+                                Console.WriteLine(edge);
+                                //TODO
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
 
 
