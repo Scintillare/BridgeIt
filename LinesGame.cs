@@ -8,32 +8,10 @@ using QuickGraph.Algorithms.ShortestPath;
 
 namespace LinesGame
 {
-    public class Vertex 
+    public class Vertex : Tuple<int, int>
     {
-        public int Row;
-        public int Col;
-
-        public Vertex(int row, int col)
+        public Vertex(int row, int col) : base(row, col)
         {
-            this.Row = row;
-            this.Col = col;
-        }
-
-        public override bool Equals(object o)
-        {
-            if (ReferenceEquals(this, o)) return true;
-            if (ReferenceEquals(this, null)) return false;
-            if (ReferenceEquals(this, null)) return false;
-            if (this.GetType() != o.GetType()) return false;
-            return this.Row == ((Vertex) o).Row && this.Col == ((Vertex) o).Col;
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (this.Row * 397) ^ this.Col;
-            }
         }
     }
 
@@ -68,28 +46,28 @@ namespace LinesGame
         {
             _p1Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
             _p2Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            for (int r = 0; r < Config.POINT_NUMBER + 1; ++r)
+            for (int r = 0; r < Config.POINT_NUMBER_1; ++r)
             {
-                for (int c = 0; c < Config.POINT_NUMBER; ++c)
+                for (int c = 0; c < Config.POINT_NUMBER_0; ++c)
                 {
                     _p1Graph.AddVertex(new Vertex(r, c));
                     _p2Graph.AddVertex(new Vertex(c, r));
                 }
             }
 
-            if (!_isAgainstPc) return;
+            if (!_isAgainstPc) return; // TODO FIXME
             _pcFakeGraph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            for (int r = 0; r < Config.POINT_NUMBER; ++r)
+            for (int r = 0; r < Config.POINT_NUMBER_0; ++r)
             {
-                for (int c = 0; c < (Config.POINT_NUMBER + 1); ++c)
+                for (int c = 0; c < (Config.POINT_NUMBER_1); ++c)
                 {
-                    if (r + 1 != Config.POINT_NUMBER)
+                    if (r + 1 != Config.POINT_NUMBER_0)
                     {
                         _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
                             new Vertex(r + 1, c)));
                     }
 
-                    if (c + 1 != Config.POINT_NUMBER + 1)
+                    if (c + 1 != Config.POINT_NUMBER_1)
                     {
                         _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
                             new Vertex(r, c + 1)));
@@ -139,8 +117,8 @@ namespace LinesGame
 
         private void InitTokens()
         {
-            _p1Tokens = new Rectangle[(Config.POINT_NUMBER + 1), Config.POINT_NUMBER];
-            _p2Tokens = new Rectangle[Config.POINT_NUMBER, (Config.POINT_NUMBER + 1)];
+            _p1Tokens = new Rectangle[Config.POINT_NUMBER_1, Config.POINT_NUMBER_0];
+            _p2Tokens = new Rectangle[Config.POINT_NUMBER_0, Config.POINT_NUMBER_1];
 
             int cellSize = _borderSize.Width / Config.CELL_NUMBER;
             int shiftSize = cellSize * 2;
@@ -157,7 +135,6 @@ namespace LinesGame
                         Config.POINT_RADIUS * 2);
                 }
             }
-
             for (int row = 0; row < _p2Tokens.GetLength(0); ++row)
             {
                 int y = shiftSize + (row * shiftSize);
@@ -213,8 +190,8 @@ namespace LinesGame
             if (_clickedVertex == null) return;
             var p = 2;
             var enlargedR = IsFirstPlayerMove()
-                ? _p1Tokens[_clickedVertex.Row, _clickedVertex.Col]
-                : _p2Tokens[_clickedVertex.Row, _clickedVertex.Col];
+                ? _p1Tokens[_clickedVertex.Item1, _clickedVertex.Item2]
+                : _p2Tokens[_clickedVertex.Item1, _clickedVertex.Item2];
             enlargedR = new Rectangle(enlargedR.X - p, enlargedR.Y - p, enlargedR.Width + p * 2,
                 enlargedR.Height + p * 2);
             graphics.FillEllipse((IsFirstPlayerMove() ? p1b : p2b), enlargedR);
@@ -225,8 +202,8 @@ namespace LinesGame
             foreach (var edge in _p1Graph.Edges)
             {
                 Pen pen = new Pen(Config.PLAYER1_COLOR, 5);
-                var rect1 = _p1Tokens[edge.Source.Row, edge.Source.Col];
-                var rect2 = _p1Tokens[edge.Target.Row, edge.Target.Col];
+                var rect1 = _p1Tokens[edge.Source.Item1, edge.Source.Item2];
+                var rect2 = _p1Tokens[edge.Target.Item1, edge.Target.Item2];
                 var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
                 var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
                 graphics.DrawLine(pen, p1, p2);
@@ -235,8 +212,8 @@ namespace LinesGame
             foreach (var edge in _p2Graph.Edges)
             {
                 Pen pen = new Pen(Config.PLAYER2_COLOR, 5);
-                var rect1 = _p2Tokens[edge.Source.Row, edge.Source.Col];
-                var rect2 = _p2Tokens[edge.Target.Row, edge.Target.Col];
+                var rect1 = _p2Tokens[edge.Source.Item1, edge.Source.Item2];
+                var rect2 = _p2Tokens[edge.Target.Item1, edge.Target.Item2];
                 var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
                 var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
                 graphics.DrawLine(pen, p1, p2);
@@ -248,7 +225,7 @@ namespace LinesGame
         {
             try
             {
-                (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y).ToValueTuple();
+                (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y);
                 if (_clickedVertex != null)
                 {
                     if (IsFirstPlayerMove())
@@ -262,7 +239,11 @@ namespace LinesGame
 
                     _moveCount += 1;
                     _clickedVertex = null;
-                    isGameOver = _isGameOver();
+                    if (_isGameOver())
+                    {
+                        isGameOver = true;
+                        //TODO обвести линию
+                    }
                 }
                 else
                 {
@@ -287,11 +268,11 @@ namespace LinesGame
             if (!IsFirstPlayerMove())
             {
                 int rowStart = 0;
-                for (int colStart = 0; colStart < Config.POINT_NUMBER + 1; ++colStart)
+                for (int colStart = 0; colStart < Config.POINT_NUMBER_0; ++colStart)
                 {
                     var tryGetPaths = _p1Graph.ShortestPathsDijkstra(edgeCost, new Vertex(rowStart, colStart));
-                    int rowEnd = Config.POINT_NUMBER + 1;
-                    for (int colEnd = 0; colEnd < Config.POINT_NUMBER + 1; ++colEnd)
+                    int rowEnd = Config.POINT_NUMBER_1 - 1;
+                    for (int colEnd = 0; colEnd < Config.POINT_NUMBER_0; ++colEnd)
                     {
                         IEnumerable<UndirectedEdge<Vertex>> path;
                         if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
@@ -311,18 +292,18 @@ namespace LinesGame
         }
 
 
-        private void DoMove(Vertex p1, Vertex p2)
-        {
-            //BUG
-            if (IsFirstPlayerMove())
-            {
-                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
-                //TODO brake line in fake graph!!
-            }
-            else
-            {
-                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
-            }
-        }
+//        private void DoMove(Vertex p1, Vertex p2)
+//        {
+//            //BUG
+//            if (IsFirstPlayerMove())
+//            {
+//                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+//                //TODO brake line in fake graph!!
+//            }
+//            else
+//            {
+//                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+//            }
+//        }
     }
 }
