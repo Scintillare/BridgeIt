@@ -24,7 +24,7 @@ namespace LinesGame
                 this.Width += (pbCenter.Height - pbCenter.Width);
             else
                 this.Height += (pbCenter.Width - pbCenter.Height);
-            game = new LinesGame(pbCenter.Size);
+            game = new LinesGame(pbCenter.Size, false); //BUG
         }
 
         private void LinesForm_Load(object sender, EventArgs e)

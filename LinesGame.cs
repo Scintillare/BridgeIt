@@ -18,9 +18,10 @@ namespace LinesGame
 
     public class LinesGame
     {
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _p1Graph;
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _p2Graph;
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _pcFakeGraph;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveHistoryP1;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveHistoryP2;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveMapP1;
+        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveMapP2;
         private int _moveCount;
         private bool _isAgainstPc; // TODO 
         public bool isGameOver;
@@ -30,47 +31,50 @@ namespace LinesGame
         private Rectangle[,] _p1Tokens;
         private Rectangle[,] _p2Tokens;
         private Vertex _clickedVertex;
+        private List<Vertex> _availableVertices;
 
-        public LinesGame(Size borderSize)
+        public LinesGame(Size borderSize, bool againstPC)
         {
             isGameOver = false;
             _moveCount = 0;
-            _isAgainstPc = true;
+            _isAgainstPc = againstPC;
             _borderSize = borderSize;
             _clickedVertex = null;
+            if (_isAgainstPc) InitAI(); //BUG 
             InitGraphs();
             InitTokens();
         }
 
+        public void InitAI()
+        {
+            //BUG
+        }
+
         private void InitGraphs()
         {
-            _p1Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            _p2Graph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _moveHistoryP1 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _moveHistoryP2 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _moveMapP1 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _moveMapP2 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+
             for (int r = 0; r < Config.POINT_NUMBER_1; ++r)
             {
-                for (int c = 0; c < Config.POINT_NUMBER_0; ++c)
+                for (int c = 0; c < (Config.POINT_NUMBER_0); ++c)
                 {
-                    _p1Graph.AddVertex(new Vertex(r, c));
-                    _p2Graph.AddVertex(new Vertex(c, r));
-                }
-            }
-
-            if (!_isAgainstPc) return; // TODO FIXME
-            _pcFakeGraph = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            for (int r = 0; r < Config.POINT_NUMBER_0; ++r)
-            {
-                for (int c = 0; c < (Config.POINT_NUMBER_1); ++c)
-                {
-                    if (r + 1 != Config.POINT_NUMBER_0)
+                    if (r + 1 != Config.POINT_NUMBER_1) // horizontal line 
                     {
-                        _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
-                            new Vertex(r + 1, c)));
+                        _moveMapP1.AddVerticesAndEdge(
+                            new UndirectedEdge<Vertex>(new Vertex(r, c), new Vertex(r + 1, c)));
+                        _moveMapP2.AddVerticesAndEdge(
+                            new UndirectedEdge<Vertex>(new Vertex(c, r), new Vertex(c, r + 1)));
                     }
 
-                    if (c + 1 != Config.POINT_NUMBER_1)
+                    if (c + 1 != Config.POINT_NUMBER_0) //vertical line
                     {
-                        _pcFakeGraph.AddVerticesAndEdge(new UndirectedEdge<Vertex>(new Vertex(r, c),
-                            new Vertex(r, c + 1)));
+                        _moveMapP1.AddVerticesAndEdge(
+                            new UndirectedEdge<Vertex>(new Vertex(r, c), new Vertex(r, c + 1)));
+                        _moveMapP2.AddVerticesAndEdge(
+                            new UndirectedEdge<Vertex>(new Vertex(c, r), new Vertex(c + 1, r)));
                     }
                 }
             }
@@ -85,29 +89,14 @@ namespace LinesGame
         {
             /*Функция возвращает кортеж только если игрок выбрал фигуру своего цвета*/
             var p = new Point(x, y);
-            if (IsFirstPlayerMove())
+            var arr = IsFirstPlayerMove() ? ref _p1Tokens : ref _p2Tokens;
+            for (var i = 0; i < arr.GetLength(0); ++i)
             {
-                for (var i = 0; i < _p1Tokens.GetLength(0); ++i)
+                for (var j = 0; j < arr.GetLength(1); ++j)
                 {
-                    for (var j = 0; j < _p1Tokens.GetLength(1); ++j)
+                    if (arr[i, j].Contains(p))
                     {
-                        if (_p1Tokens[i, j].Contains(p))
-                        {
-                            return Tuple.Create(_p1Tokens[i, j], new Vertex(i, j));
-                        }
-                    }
-                }
-            }
-            else
-            {
-                for (var i = 0; i < _p2Tokens.GetLength(0); ++i)
-                {
-                    for (var j = 0; j < _p2Tokens.GetLength(1); ++j)
-                    {
-                        if (_p2Tokens[i, j].Contains(p))
-                        {
-                            return Tuple.Create(_p2Tokens[i, j], new Vertex(i, j));
-                        }
+                        return Tuple.Create(arr[i, j], new Vertex(i, j));
                     }
                 }
             }
@@ -135,6 +124,7 @@ namespace LinesGame
                         Config.POINT_RADIUS * 2);
                 }
             }
+
             for (int row = 0; row < _p2Tokens.GetLength(0); ++row)
             {
                 int y = shiftSize + (row * shiftSize);
@@ -199,7 +189,7 @@ namespace LinesGame
 
         public void DrawLines(Graphics graphics)
         {
-            foreach (var edge in _p1Graph.Edges)
+            foreach (var edge in _moveHistoryP1.Edges)
             {
                 Pen pen = new Pen(Config.PLAYER1_COLOR, 5);
                 var rect1 = _p1Tokens[edge.Source.Item1, edge.Source.Item2];
@@ -209,7 +199,7 @@ namespace LinesGame
                 graphics.DrawLine(pen, p1, p2);
             }
 
-            foreach (var edge in _p2Graph.Edges)
+            foreach (var edge in _moveHistoryP2.Edges)
             {
                 Pen pen = new Pen(Config.PLAYER2_COLOR, 5);
                 var rect1 = _p2Tokens[edge.Source.Item1, edge.Source.Item2];
@@ -221,6 +211,45 @@ namespace LinesGame
         }
 
 
+        private bool _isGameOver()
+        {
+            // так как проверка выолняяется после хода, то используется отрицание очередности ходов
+            bool earlyStop = !IsFirstPlayerMove()
+                ? _moveHistoryP1.EdgeCount < Config.POINT_NUMBER_0
+                : _moveHistoryP2.EdgeCount < Config.POINT_NUMBER_0;
+            if (earlyStop) return false;
+
+            Func<UndirectedEdge<Vertex>, double> edgeCost = e => 1;
+            IEnumerable<UndirectedEdge<Vertex>> path;
+
+            List<Vertex> sourcePoints = new List<Vertex>();
+            List<Vertex> targetPoints = new List<Vertex>();
+            int start = 0, end = Config.POINT_NUMBER_1 - 1;
+            var graph = !IsFirstPlayerMove() ? _moveHistoryP1 : _moveHistoryP2;
+            foreach (var point in graph.Vertices)
+            {
+                var item = !IsFirstPlayerMove() ? point.Item1 : point.Item2;
+                if (item == start) sourcePoints.Add(point);
+                if (item == end) targetPoints.Add(point);
+            }
+
+            if (sourcePoints.Count == 0 || targetPoints.Count == 0) return false;
+
+            foreach (var source in sourcePoints)
+            {
+                var tryGetPaths = graph.ShortestPathsDijkstra(edgeCost, source);
+                foreach (var target in targetPoints)
+                {
+                    if (tryGetPaths(target, out path))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public void clickHandler(int x, int y)
         {
             try
@@ -228,9 +257,14 @@ namespace LinesGame
                 (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y);
                 if (_clickedVertex != null)
                 {
-                    _dMove()
-                    _moveCount += 1;
-                    _clickedVertex = null;
+                    if (_clickedVertex.Equals(v))
+                    {
+                        _clickedVertex = null;
+                        return;
+                    }
+
+                    if (!_availableVertices.Contains(v)) return;
+                    _doMove(v);
                     if (_isGameOver())
                     {
                         isGameOver = true;
@@ -240,6 +274,8 @@ namespace LinesGame
                 else
                 {
                     _clickedVertex = v;
+                    _availableVertices = _getAvailableMoves(v);
+                    //TODO highlight indices
                 }
             }
             catch (KeyNotFoundException e)
@@ -248,65 +284,40 @@ namespace LinesGame
             }
         }
 
-        private bool _isGameOver()
+        private List<Vertex> _getAvailableMoves(Vertex vertex)
         {
-            // BUG 1 PRIORITY
-            // так как проверка выолняяется после хода, то используется отрицание очередности ходов
-            bool earlyStop = !IsFirstPlayerMove() ? (_p1Graph.EdgeCount < 5) : (_p2Graph.EdgeCount < 5);
-            if (earlyStop) return false;
+            List<Vertex> list = new List<Vertex>();
+            var edges = IsFirstPlayerMove() ? _moveMapP1.AdjacentEdges(vertex) : _moveMapP2.AdjacentEdges(vertex);
 
-            Func<UndirectedEdge<Vertex>, double> edgeCost = e => 1;
-            IEnumerable<UndirectedEdge<Vertex>> path;
-
-
-            if (!IsFirstPlayerMove())
+            foreach (var edge in edges)
             {
-                int rowStart = 0;
-                for (int colStart = 0; colStart < Config.POINT_NUMBER_0; ++colStart)
-                {
-                    var tryGetPaths = _p1Graph.ShortestPathsDijkstra(edgeCost, new Vertex(rowStart, colStart));
-                    int rowEnd = Config.POINT_NUMBER_1 - 1;
-                    for (int colEnd = 0; colEnd < Config.POINT_NUMBER_0; ++colEnd)
-                    {
-                        if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
-                        {
-                            return true;
-                        }
-                    }
-                }
+                list.Add(edge.Target);
             }
-            else
-            {
-                int colStart = 0;
-                for (int rowStart = 0; rowStart < Config.POINT_NUMBER_0; ++rowStart)
-                {
-                    var tryGetPaths = _p2Graph.ShortestPathsDijkstra(edgeCost, new Vertex(rowStart, colStart));
-                    int colEnd = Config.POINT_NUMBER_1 - 1;
-                    for (int rowEnd = 0; rowEnd < Config.POINT_NUMBER_0; ++rowEnd)
-                    {
-                        if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
+
+            return list;
         }
 
 
         private void _doMove(Vertex v)
         {
-            //BUG
             if (IsFirstPlayerMove())
             {
-                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
-                //TODO brake line in fake graph!!
+                if (_moveMapP1.ContainsEdge(_clickedVertex, v) || _moveMapP1.ContainsEdge(v, _clickedVertex))
+                {
+                    _moveHistoryP1.AddVerticesAndEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                }
             }
             else
             {
-                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+                if (_moveMapP2.ContainsEdge(_clickedVertex, v) || _moveMapP2.ContainsEdge(v, _clickedVertex))
+                {
+                    _moveHistoryP2.AddVerticesAndEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                }
             }
+            // TODO FIXME BUG
+
+            _moveCount += 1;
+            _clickedVertex = null;
         }
     }
 }
