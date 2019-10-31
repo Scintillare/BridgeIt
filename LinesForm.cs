@@ -44,22 +44,19 @@ namespace LinesGame
 
         private void timer1_Tick(object sender, EventArgs e)
         {
+            pbCenter.Invalidate();
+        }
+
+        private void pbCenter_MouseClick(object sender, MouseEventArgs e)
+        {
             if (!game.isGameOver)
             {
-                pbCenter.Invalidate();
+                game.clickHandler(e.X, e.Y);
             }
             else
             {
                 timer1.Stop();
             }
-        }
-
-        private void pbCenter_MouseClick(object sender, MouseEventArgs e)
-        {
-//            while (!game.isGameOver)
-//            {
-            game.clickHandler(e.X, e.Y);
-//            }
         }
     }
 }

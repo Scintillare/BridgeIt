@@ -228,15 +228,7 @@ namespace LinesGame
                 (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y);
                 if (_clickedVertex != null)
                 {
-                    if (IsFirstPlayerMove())
-                    {
-                        _p1Graph.AddEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
-                    }
-                    else
-                    {
-                        _p2Graph.AddEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
-                    }
-
+                    _dMove()
                     _moveCount += 1;
                     _clickedVertex = null;
                     if (_isGameOver())
@@ -264,6 +256,8 @@ namespace LinesGame
             if (earlyStop) return false;
 
             Func<UndirectedEdge<Vertex>, double> edgeCost = e => 1;
+            IEnumerable<UndirectedEdge<Vertex>> path;
+
 
             if (!IsFirstPlayerMove())
             {
@@ -274,36 +268,45 @@ namespace LinesGame
                     int rowEnd = Config.POINT_NUMBER_1 - 1;
                     for (int colEnd = 0; colEnd < Config.POINT_NUMBER_0; ++colEnd)
                     {
-                        IEnumerable<UndirectedEdge<Vertex>> path;
                         if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
                         {
-                            foreach (var edge in path)
-                            {
-                                UndirectedEdge<Vertex> a = edge;
-                                Console.WriteLine(edge);
-                                //TODO
-                            }
+                            return true;
                         }
                     }
                 }
             }
-
+            else
+            {
+                int colStart = 0;
+                for (int rowStart = 0; rowStart < Config.POINT_NUMBER_0; ++rowStart)
+                {
+                    var tryGetPaths = _p2Graph.ShortestPathsDijkstra(edgeCost, new Vertex(rowStart, colStart));
+                    int colEnd = Config.POINT_NUMBER_1 - 1;
+                    for (int rowEnd = 0; rowEnd < Config.POINT_NUMBER_0; ++rowEnd)
+                    {
+                        if (tryGetPaths(new Vertex(rowEnd, colEnd), out path))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
             return false;
         }
 
 
-//        private void DoMove(Vertex p1, Vertex p2)
-//        {
-//            //BUG
-//            if (IsFirstPlayerMove())
-//            {
-//                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
-//                //TODO brake line in fake graph!!
-//            }
-//            else
-//            {
-//                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
-//            }
-//        }
+        private void _doMove(Vertex v)
+        {
+            //BUG
+            if (IsFirstPlayerMove())
+            {
+                _p1Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+                //TODO brake line in fake graph!!
+            }
+            else
+            {
+                _p2Graph.AddEdge(new UndirectedEdge<Vertex>(p1, p2));
+            }
+        }
     }
 }
