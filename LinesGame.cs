@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Contracts;
 using System.Drawing;
 using System.Linq;
 using QuickGraph;
@@ -18,14 +19,15 @@ namespace LinesGame
 
     public class LinesGame
     {
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveHistoryP1;
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveHistoryP2;
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveMapP1;
-        private UndirectedGraph<Vertex, UndirectedEdge<Vertex>> _moveMapP2;
+        private UndirectedGraph<Vertex, Edge<Vertex>> _moveHistoryP1;
+        private UndirectedGraph<Vertex, Edge<Vertex>> _moveHistoryP2;
+        private BidirectionalGraph<Vertex, Edge<Vertex>> _moveMapP1;
+        private BidirectionalGraph<Vertex, Edge<Vertex>> _moveMapP2;
         private int _moveCount;
         private bool _isAgainstPc; // TODO 
         public bool isGameOver;
-
+        
+        public int MoveCount => _moveCount;
 
         private Size _borderSize; //TODO get set?
         private Rectangle[,] _p1Tokens;
@@ -40,11 +42,12 @@ namespace LinesGame
             _isAgainstPc = againstPC;
             _borderSize = borderSize;
             _clickedVertex = null;
+            _availableVertices = new List<Vertex>();
             if (_isAgainstPc) InitAI(); //BUG 
             InitGraphs();
             InitTokens();
         }
-
+        
         public void InitAI()
         {
             //BUG
@@ -52,37 +55,45 @@ namespace LinesGame
 
         private void InitGraphs()
         {
-            _moveHistoryP1 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            _moveHistoryP2 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            _moveMapP1 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
-            _moveMapP2 = new UndirectedGraph<Vertex, UndirectedEdge<Vertex>>();
+            _moveHistoryP1 = new UndirectedGraph<Vertex, Edge<Vertex>>();
+            _moveHistoryP2 = new UndirectedGraph<Vertex, Edge<Vertex>>();
+            _moveMapP1 = new BidirectionalGraph<Vertex, Edge<Vertex>>();
+            _moveMapP2 = new BidirectionalGraph<Vertex, Edge<Vertex>>();
 
             for (int r = 0; r < Config.POINT_NUMBER_1; ++r)
             {
-                for (int c = 0; c < (Config.POINT_NUMBER_0); ++c)
+                for (int c = 0; c < Config.POINT_NUMBER_0; ++c)
                 {
                     if (r + 1 != Config.POINT_NUMBER_1) // horizontal line 
                     {
                         _moveMapP1.AddVerticesAndEdge(
-                            new UndirectedEdge<Vertex>(new Vertex(r, c), new Vertex(r + 1, c)));
+                            new Edge<Vertex>(new Vertex(r, c), new Vertex(r + 1, c)));
+                        _moveMapP1.AddEdge(
+                            new Edge<Vertex>(new Vertex(r + 1, c), new Vertex(r, c)));
                         _moveMapP2.AddVerticesAndEdge(
-                            new UndirectedEdge<Vertex>(new Vertex(c, r), new Vertex(c, r + 1)));
+                            new Edge<Vertex>(new Vertex(c, r), new Vertex(c, r + 1)));
+                        _moveMapP2.AddEdge(
+                            new Edge<Vertex>(new Vertex(c, r + 1), new Vertex(c, r)));
                     }
 
                     if (c + 1 != Config.POINT_NUMBER_0) //vertical line
                     {
                         _moveMapP1.AddVerticesAndEdge(
-                            new UndirectedEdge<Vertex>(new Vertex(r, c), new Vertex(r, c + 1)));
+                            new Edge<Vertex>(new Vertex(r, c), new Vertex(r, c + 1)));
+                        _moveMapP1.AddEdge(
+                            new Edge<Vertex>(new Vertex(r, c + 1), new Vertex(r, c)));
                         _moveMapP2.AddVerticesAndEdge(
-                            new UndirectedEdge<Vertex>(new Vertex(c, r), new Vertex(c + 1, r)));
+                            new Edge<Vertex>(new Vertex(c, r), new Vertex(c + 1, r)));
+                        _moveMapP2.AddEdge(
+                            new Edge<Vertex>(new Vertex(c + 1, r), new Vertex(c, r)));
                     }
                 }
             }
         }
 
-        private bool IsFirstPlayerMove()
+        public bool IsFirstPlayerMove()
         {
-            return (_moveCount % 2 == 0);
+            return _moveCount % 2 == 0;
         }
 
         private Tuple<Rectangle, Vertex> ClickedRectangleAndVertex(int x, int y)
@@ -114,12 +125,12 @@ namespace LinesGame
 
             for (int row = 0; row < _p1Tokens.GetLength(0); ++row)
             {
-                int y = cellSize + (row * shiftSize);
+                int y = cellSize + row * shiftSize;
                 for (int col = 0; col < _p1Tokens.GetLength(1); ++col)
                 {
-                    int x = (col * shiftSize) + shiftSize;
-                    _p1Tokens[row, col] = new Rectangle((x - Config.POINT_RADIUS),
-                        (y - Config.POINT_RADIUS),
+                    int x = col * shiftSize + shiftSize;
+                    _p1Tokens[row, col] = new Rectangle(x - Config.POINT_RADIUS,
+                        y - Config.POINT_RADIUS,
                         Config.POINT_RADIUS * 2,
                         Config.POINT_RADIUS * 2);
                 }
@@ -127,12 +138,12 @@ namespace LinesGame
 
             for (int row = 0; row < _p2Tokens.GetLength(0); ++row)
             {
-                int y = shiftSize + (row * shiftSize);
+                int y = shiftSize + row * shiftSize;
                 for (int col = 0; col < _p2Tokens.GetLength(1); ++col)
                 {
-                    int x = (col * shiftSize) + cellSize;
-                    _p2Tokens[row, col] = new Rectangle((x - Config.POINT_RADIUS),
-                        (y - Config.POINT_RADIUS),
+                    int x = col * shiftSize + cellSize;
+                    _p2Tokens[row, col] = new Rectangle(x - Config.POINT_RADIUS,
+                        y - Config.POINT_RADIUS,
                         Config.POINT_RADIUS * 2,
                         Config.POINT_RADIUS * 2);
                 }
@@ -176,7 +187,7 @@ namespace LinesGame
             {
                 graphics.FillEllipse(new SolidBrush(Config.PLAYER2_COLOR), token);
             }
-
+            
             if (_clickedVertex == null) return;
             var p = 2;
             var enlargedR = IsFirstPlayerMove()
@@ -184,29 +195,37 @@ namespace LinesGame
                 : _p2Tokens[_clickedVertex.Item1, _clickedVertex.Item2];
             enlargedR = new Rectangle(enlargedR.X - p, enlargedR.Y - p, enlargedR.Width + p * 2,
                 enlargedR.Height + p * 2);
-            graphics.FillEllipse((IsFirstPlayerMove() ? p1b : p2b), enlargedR);
+            graphics.FillEllipse(IsFirstPlayerMove() ? p1b : p2b, enlargedR);
+                        
+            if (_availableVertices.Count == 0) return;
+            SolidBrush pb = new SolidBrush(Config.HL_COLOR);
+            foreach (var v in _availableVertices)
+            {
+                if (IsFirstPlayerMove()) graphics.FillEllipse(pb, _p1Tokens[v.Item1, v.Item2]);
+                else graphics.FillEllipse(pb, _p2Tokens[v.Item1, v.Item2]);
+            }
         }
 
         public void DrawLines(Graphics graphics)
         {
+            Pen pen1 = new Pen(Config.PLAYER1_COLOR, Config.LINE_WIDTH);
             foreach (var edge in _moveHistoryP1.Edges)
             {
-                Pen pen = new Pen(Config.PLAYER1_COLOR, 5);
                 var rect1 = _p1Tokens[edge.Source.Item1, edge.Source.Item2];
                 var rect2 = _p1Tokens[edge.Target.Item1, edge.Target.Item2];
                 var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
                 var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
-                graphics.DrawLine(pen, p1, p2);
+                graphics.DrawLine(pen1, p1, p2);
             }
 
+            Pen pen2 = new Pen(Config.PLAYER2_COLOR, Config.LINE_WIDTH);
             foreach (var edge in _moveHistoryP2.Edges)
             {
-                Pen pen = new Pen(Config.PLAYER2_COLOR, 5);
                 var rect1 = _p2Tokens[edge.Source.Item1, edge.Source.Item2];
                 var rect2 = _p2Tokens[edge.Target.Item1, edge.Target.Item2];
                 var p1 = new Point(rect1.X + rect1.Width / 2, rect1.Y + rect1.Height / 2);
                 var p2 = new Point(rect2.X + rect2.Width / 2, rect2.Y + rect1.Height / 2);
-                graphics.DrawLine(pen, p1, p2);
+                graphics.DrawLine(pen2, p1, p2);
             }
         }
 
@@ -219,8 +238,8 @@ namespace LinesGame
                 : _moveHistoryP2.EdgeCount < Config.POINT_NUMBER_0;
             if (earlyStop) return false;
 
-            Func<UndirectedEdge<Vertex>, double> edgeCost = e => 1;
-            IEnumerable<UndirectedEdge<Vertex>> path;
+            Func<Edge<Vertex>, double> edgeCost = e => 1;
+            IEnumerable<Edge<Vertex>> path;
 
             List<Vertex> sourcePoints = new List<Vertex>();
             List<Vertex> targetPoints = new List<Vertex>();
@@ -252,70 +271,107 @@ namespace LinesGame
 
         public void clickHandler(int x, int y)
         {
+            Vertex v;
             try
             {
-                (Rectangle rect, Vertex v) = ClickedRectangleAndVertex(x, y);
-                if (_clickedVertex != null)
-                {
-                    if (_clickedVertex.Equals(v))
-                    {
-                        _clickedVertex = null;
-                        return;
-                    }
-
-                    if (!_availableVertices.Contains(v)) return;
-                    _doMove(v);
-                    if (_isGameOver())
-                    {
-                        isGameOver = true;
-                        //TODO обвести линию
-                    }
-                }
-                else
-                {
-                    _clickedVertex = v;
-                    _availableVertices = _getAvailableMoves(v);
-                    //TODO highlight indices
-                }
+                (_, v) = ClickedRectangleAndVertex(x, y);
             }
             catch (KeyNotFoundException e)
             {
                 return;
             }
-        }
 
-        private List<Vertex> _getAvailableMoves(Vertex vertex)
-        {
-            List<Vertex> list = new List<Vertex>();
-            var edges = IsFirstPlayerMove() ? _moveMapP1.AdjacentEdges(vertex) : _moveMapP2.AdjacentEdges(vertex);
-
-            foreach (var edge in edges)
+            if (_clickedVertex != null)
             {
-                list.Add(edge.Target);
-            }
-
-            return list;
-        }
-
-
-        private void _doMove(Vertex v)
-        {
-            if (IsFirstPlayerMove())
-            {
-                if (_moveMapP1.ContainsEdge(_clickedVertex, v) || _moveMapP1.ContainsEdge(v, _clickedVertex))
+                if (_clickedVertex.Equals(v))
                 {
-                    _moveHistoryP1.AddVerticesAndEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                    _clickedVertex = null;
+                    return;
+                }
+
+                if (!_availableVertices.Contains(v)) return;
+                _doMove(v);
+                if (_isGameOver())
+                {
+                    isGameOver = true;
+                    //TODO обвести линию
                 }
             }
             else
             {
-                if (_moveMapP2.ContainsEdge(_clickedVertex, v) || _moveMapP2.ContainsEdge(v, _clickedVertex))
+                _clickedVertex = v;
+                _updateAvailableMoves();
+            }
+        }
+        
+
+        private void _updateAvailableMoves()
+        {
+            if (_availableVertices.Count != 0) _availableVertices.Clear();
+            var mapGraph = IsFirstPlayerMove() ? _moveMapP1 : _moveMapP2;
+            var histGraph = IsFirstPlayerMove() ? _moveHistoryP1 : _moveHistoryP2;
+            foreach (var edge in mapGraph.OutEdges(_clickedVertex))
+            {
+                if (histGraph.EdgeCount != 0)
                 {
-                    _moveHistoryP2.AddVerticesAndEdge(new UndirectedEdge<Vertex>(_clickedVertex, v));
+                    if (histGraph.ContainsVertex(edge.Target) && histGraph.ContainsVertex(_clickedVertex))
+                    {
+                        if (histGraph.ContainsEdge(edge.Target, _clickedVertex)) continue;
+                    }
+                }
+                _availableVertices.Add(edge.Target);
+            }
+        }
+
+
+        private void _doMove(Vertex targetVertex)
+        {
+            Vertex p1, p2;
+            if (IsFirstPlayerMove())
+            {
+                if (_moveMapP1.ContainsEdge(_clickedVertex, targetVertex))
+                {
+                    _moveHistoryP1.AddVerticesAndEdge(new Edge<Vertex>(_clickedVertex, targetVertex));
+                    if (_clickedVertex.Item1 == targetVertex.Item1) // horizontal line
+                    {
+                        p2 = _clickedVertex.Item2 < targetVertex.Item2 ? targetVertex : _clickedVertex;
+                        p1 = new Vertex(p2.Item1 - 1, p2.Item2);
+                    }
+                    else //vertical line
+                    {
+                        p1 = _clickedVertex.Item1 < targetVertex.Item1 ? _clickedVertex : targetVertex;
+                        p2 = new Vertex(p1.Item1, p1.Item2 + 1);
+                    }
+
+                    _moveMapP2.RemoveEdgeIf(edge =>
+                        (edge.Source.Equals(p1) && edge.Target.Equals(p2) ||
+                         edge.Source.Equals(p2) && edge.Target.Equals(p1)));
                 }
             }
-            // TODO FIXME BUG
+            else
+            {
+                if (_moveMapP2.ContainsEdge(_clickedVertex, targetVertex))
+                {
+                    _moveHistoryP2.AddVerticesAndEdge(new Edge<Vertex>(_clickedVertex, targetVertex));
 
+                    if (_clickedVertex.Item1 == targetVertex.Item1) // horizontal line
+                    {
+                        p1 = _clickedVertex.Item2 < targetVertex.Item2 ? _clickedVertex : targetVertex;
+                        p2 = new Vertex(p1.Item1 + 1, p1.Item2);
+                    }
+                    else //vertical line
+                    {
+                        p2 = _clickedVertex.Item1 < targetVertex.Item1 ? targetVertex : _clickedVertex;
+                        p1 = new Vertex(p2.Item1, p2.Item2 - 1);
+                    }
+
+                    _moveMapP1.RemoveEdgeIf(edge =>
+                        (edge.Source.Equals(p1) && edge.Target.Equals(p2) ||
+                         edge.Source.Equals(p2) && edge.Target.Equals(p1)));
+                }
+            }
+
+            _availableVertices.Clear();
             _moveCount += 1;
             _clickedVertex = null;
         }

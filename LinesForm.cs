@@ -21,10 +21,10 @@ namespace LinesGame
             InitializeComponent();
             this.Size = Config.WINDOW_SIZE;
             if (pbCenter.Width <= pbCenter.Height)
-                this.Width += (pbCenter.Height - pbCenter.Width);
+                this.Width += pbCenter.Height - pbCenter.Width;
             else
-                this.Height += (pbCenter.Width - pbCenter.Height);
-            game = new LinesGame(pbCenter.Size, false); //BUG
+                this.Height += pbCenter.Width - pbCenter.Height;
+            game = new LinesGame(pbCenter.Size, false); 
         }
 
         private void LinesForm_Load(object sender, EventArgs e)
@@ -38,13 +38,25 @@ namespace LinesGame
             Graphics g = e.Graphics;
             g.Clear(pbCenter.BackColor);
             game.DrawBackground(g);
-            game.DrawTokens(g);
             game.DrawLines(g);
+            game.DrawTokens(g);
         }
 
         private void timer1_Tick(object sender, EventArgs e)
         {
             pbCenter.Invalidate();
+            if (!game.isGameOver) return;
+            timer1.Stop();
+            WinForm winDialog = new WinForm(!game.IsFirstPlayerMove(), game.MoveCount);
+
+            // Show testDialog as a modal dialog and determine if DialogResult = OK.
+            if (winDialog.ShowDialog() == DialogResult.OK)
+            {
+            }
+            else
+            {
+            }
+            winDialog.Dispose();
         }
 
         private void pbCenter_MouseClick(object sender, MouseEventArgs e)
@@ -53,13 +65,7 @@ namespace LinesGame
             {
                 game.clickHandler(e.X, e.Y);
             }
-            else
-            {
-                timer1.Stop();
-            }
         }
     }
+    
 }
-
-
-//g.DrawString(pbCenter.Width.ToString() + pbCenter.Height.ToString(), new Font(FontFamily.GenericMonospace, 20), new SolidBrush(Color.Red), 200f, 200f); XXX 

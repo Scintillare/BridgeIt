@@ -24,6 +24,9 @@
         <e p="Settings.Designer.cs" t="Include" />
         <e p="Settings.settings" t="Include" />
       </e>
+      <e p="WinForm.cs" t="Include" />
+      <e p="WinForm.Designer.cs" t="Include" />
+      <e p="WinForm.resx" t="Include" />
     </e>
   </component>
 </project>
