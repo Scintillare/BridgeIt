@@ -49,6 +49,7 @@ namespace LinesGame
             this.pbCenter.TabStop = false;
             this.pbCenter.Paint += new System.Windows.Forms.PaintEventHandler(this.pbCenter_Paint);
             this.pbCenter.MouseClick += new System.Windows.Forms.MouseEventHandler(this.pbCenter_MouseClick);
+            this.pbCenter.MouseMove += new System.Windows.Forms.MouseEventHandler(this.pbCenter_MouseMove);
             // 
             // timer1
             // 

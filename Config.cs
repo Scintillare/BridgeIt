@@ -5,6 +5,7 @@ namespace LinesGame
     public static class Config
     {
         public static Size WINDOW_SIZE = new Size(700, 700);
+        public const int FONT_SIZE = 30;
         public const int LINE_WIDTH = 5;
         public const int POINT_RADIUS = 10;
         public const float BORDER_SIZE = 20;
