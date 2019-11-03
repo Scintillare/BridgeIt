@@ -84,7 +84,7 @@ namespace LinesGame
             if (!_isGameStarted) return;
             if (!_game.IsGameOver) return;
             timer1.Stop();
-            var winDialog = new WinForm(!_game.IsFirstPlayerMove(), _game.MoveCount);
+            var winDialog = new WinForm(!_game.IsFirstPlayerMove, _game.MoveCount);
 
             // Show testDialog as a modal dialog and determine if DialogResult = OK.
             if (winDialog.ShowDialog() == DialogResult.Retry)
@@ -117,7 +117,8 @@ namespace LinesGame
                 return;
             }
 
-            if (!_game.IsGameOver) _game.clickHandler(e.X, e.Y);
+            if (_game.IsGameOver || (_game._isAgainstPc && !_game.IsFirstPlayerMove)) return;
+            _game.clickHandler(e.X, e.Y);
         }
 
         private void pbCenter_MouseMove(object sender, MouseEventArgs me)
