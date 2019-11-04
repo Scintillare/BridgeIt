@@ -19,6 +19,42 @@ namespace LinesGame
         public Vertex(int row, int col) : base(row, col)
         {
         }
+        
+        
+        public static bool OnHorizontal(Vertex v1, Vertex v2)
+        {
+            return v1.Item1 == v2.Item1;
+        }
+
+        public static bool OnVertical(Vertex v1, Vertex v2)
+        {
+            return v1.Item2 == v2.Item2;
+        }
+
+
+        public static bool operator ==(Vertex v1, Vertex v2)
+        {
+            return (v1 != null && v2 != null) && (v1.Item1 == v2.Item1) && v1.Item2 == v2.Item2;
+        }
+
+        public static bool operator !=(Vertex v1, Vertex v2)
+        {
+            return !(v1 == v2);
+        }
+
+        public static bool operator >(Vertex v1, Vertex v2)
+        { //BUG
+            if (v1 == v2) return false;
+            return ((Vertex.OnHorizontal(v1, v2) && v1.Item2 > v2.Item2) ||
+                    (Vertex.OnVertical(v1, v2) && v1.Item1 > v2.Item1));
+        }
+
+        public static bool operator <(Vertex v1, Vertex v2)
+        { // BUG
+            if (v1 == v2) return false;
+            return ((Vertex.OnHorizontal(v1, v2) && v1.Item2 < v2.Item2) ||
+                    (Vertex.OnVertical(v1, v2) && v1.Item1 < v2.Item1));
+        }
     }
 
 
@@ -302,52 +338,14 @@ namespace LinesGame
             }
         }
 
-
         private void _doMove(Vertex targetVertex)
         {
-            Vertex p1, p2;
-            if (IsFirstPlayerMove)
+            var mmap = IsFirstPlayerMove ? _moveMapP1 : _moveMapP2;
+            var hist = IsFirstPlayerMove ? _moveHistoryP1 : _moveHistoryP2;
+            if (mmap.ContainsEdge(_clickedVertex, targetVertex))
             {
-                if (_moveMapP1.ContainsEdge(_clickedVertex, targetVertex))
-                {
-                    _moveHistoryP1.AddVerticesAndEdge(new Edge<Vertex>(_clickedVertex, targetVertex));
-                    if (_clickedVertex.Item1 == targetVertex.Item1) // horizontal line
-                    {
-                        p2 = _clickedVertex.Item2 < targetVertex.Item2 ? targetVertex : _clickedVertex;
-                        p1 = new Vertex(p2.Item1 - 1, p2.Item2);
-                    }
-                    else //vertical line
-                    {
-                        p1 = _clickedVertex.Item1 < targetVertex.Item1 ? _clickedVertex : targetVertex;
-                        p2 = new Vertex(p1.Item1, p1.Item2 + 1);
-                    }
-
-                    _moveMapP2.RemoveEdgeIf(edge =>
-                        edge.Source.Equals(p1) && edge.Target.Equals(p2) ||
-                        edge.Source.Equals(p2) && edge.Target.Equals(p1));
-                }
-            }
-            else
-            {
-                if (_moveMapP2.ContainsEdge(_clickedVertex, targetVertex))
-                {
-                    _moveHistoryP2.AddVerticesAndEdge(new Edge<Vertex>(_clickedVertex, targetVertex));
-
-                    if (_clickedVertex.Item1 == targetVertex.Item1) // horizontal line
-                    {
-                        p1 = _clickedVertex.Item2 < targetVertex.Item2 ? _clickedVertex : targetVertex;
-                        p2 = new Vertex(p1.Item1 + 1, p1.Item2);
-                    }
-                    else //vertical line
-                    {
-                        p2 = _clickedVertex.Item1 < targetVertex.Item1 ? targetVertex : _clickedVertex;
-                        p1 = new Vertex(p2.Item1, p2.Item2 - 1);
-                    }
-
-                    _moveMapP1.RemoveEdgeIf(edge =>
-                        edge.Source.Equals(p1) && edge.Target.Equals(p2) ||
-                        edge.Source.Equals(p2) && edge.Target.Equals(p1));
-                }
+                hist.AddVerticesAndEdge(new Edge<Vertex>(_clickedVertex, targetVertex));
+                breakContrEdge(_clickedVertex, targetVertex);
             }
 
             _clickedVertex = null;
@@ -355,94 +353,174 @@ namespace LinesGame
             increaseMoveCount();
         }
 
-        public class AIPlayer
+        private Edge<Vertex> getEdgeBetween(bool isFirst, Vertex source, Vertex target)
         {
-            private LinesGame _game;
-            Thread aiThread;
-            private List<Edge<Vertex>> strategy;
-            private VertexList<Vertex> source_points;
-            private VertexList<Vertex> target_points;
-
-            private Func<Edge<Vertex>, double> edgeCost = e => 1;
-
-            public AIPlayer(LinesGame game)
+            Vertex p1, p2;
+            Vertex first = source;
+            Vertex last = target;
+            if (target < source)
             {
-                _game = game;
-                source_points = new VertexList<Vertex>();
-                target_points = new VertexList<Vertex>();
-                foreach (var r in Enumerable.Range(0, Config.POINT_NUMBER_0))
-                {
-                    source_points.Add(new Vertex(r, 0));
-                    target_points.Add(new Vertex(r, Config.POINT_NUMBER_0));
-                }
-
-                ChooseStrategy();
-                aiThread = new Thread(run);
-                aiThread.Name = "AIThread";
-                aiThread.Start();
+                first = target;
+                last = source;
             }
 
-            public void run()
+            var f = isFirst ? 1 : 0;
+            var nf = 1 - f;
+            if (isFirst ? Vertex.OnHorizontal(first, last) : Vertex.OnVertical(first, last))
             {
-                while (aiThread.IsAlive)
-                {
-                    Thread.Sleep(100);
-                    if (!_game.IsFirstPlayerMove)
-                    {
-                        DoMove();
-                    }
-                }
+                p2 = last;
+                p1 = new Vertex(p2.Item1 - f, p2.Item2 - nf);
+            }
+            else
+            {
+                p1 = first;
+                p2 = new Vertex(p1.Item1 + nf, p1.Item2 + f);
             }
 
-            private void ChooseStrategy()
+            return new Edge<Vertex>(p1, p2);
+        }
+
+        private void breakContrEdge(Vertex source, Vertex target)
+        {
+            var mmap = IsFirstPlayerMove ? _moveMapP2 : _moveMapP1;
+            var e = getEdgeBetween(IsFirstPlayerMove, source, target);
+            mmap.RemoveEdgeIf(edge => 
+                edge.Source.Equals(e.Source) && edge.Target.Equals(e.Target) ||
+                edge.Source.Equals(e.Target) && edge.Target.Equals(e.Source));
+        }
+
+        
+        
+    public class AIPlayer
+    {
+        private LinesGame _game;
+        Thread aiThread;
+        private VertexList<Vertex> source_points;
+        private VertexList<Vertex> target_points;
+
+        private Func<Edge<Vertex>, double> edgeCost = e => 1;
+
+
+        public AIPlayer(LinesGame game)
+        {
+            _game = game;
+            source_points = new VertexList<Vertex>();
+            target_points = new VertexList<Vertex>();
+            foreach (var r in Enumerable.Range(0, Config.POINT_NUMBER_0))
             {
-                var rand = new Random(Seed: 12);
-                var source = source_points[rand.Next(0, source_points.Count)];
-                List<IEnumerable<Edge<Vertex>>> paths = new List<IEnumerable<Edge<Vertex>>>();
-                var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, source);
-
-                foreach (var target in target_points)
-                {
-                    IEnumerable<Edge<Vertex>> path;
-                    if (tryGetPath(target, out path))
-                        paths.Add(path);
-                }
-
-                var minpath = paths[0];
-                foreach (var path in paths.Where(path => path.Count() < minpath.Count()))
-                {
-                    minpath = path;
-                }
-
-                strategy = minpath.ToList();
+                source_points.Add(new Vertex(r, 0));
+                target_points.Add(new Vertex(r, Config.POINT_NUMBER_0));
             }
 
-            private bool isStrategyValid()
+            aiThread = new Thread(run);
+            aiThread.Name = "AIThread";
+            aiThread.Start();
+        }
+
+        public void run()
+        {
+            while (aiThread.IsAlive)
             {
-                IEnumerable<Edge<Vertex>> path;
-                var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, strategy[0].Source);
-                if (tryGetPath(strategy.Last().Target, out path))
+                Thread.Sleep(1000);
+                if (!_game.IsFirstPlayerMove)
                 {
-                    var lPath = path.ToList();
-                    if (lPath.Count() != strategy.Count()) return false;
-                    for (var i = 0; i < lPath.Count(); ++i)
-                    {
-                        if ((!lPath[i].Source.Equals(strategy[i].Source)) ||
-                            (!lPath[i].Target.Equals(strategy[i].Target)))
-                            return false;
-                    }
-
-                    return true;
+                    DoMove();
                 }
+            }
+        }
 
-                return false;
+//            private void ChooseStrategy()
+//            {
+//                var rand = new Random(Seed: 12);
+//                var source = source_points[rand.Next(0, source_points.Count)];
+//                List<IEnumerable<Edge<Vertex>>> paths = new List<IEnumerable<Edge<Vertex>>>();
+//                var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, source);
+//
+//                foreach (var target in target_points)
+//                {
+//                    IEnumerable<Edge<Vertex>> path;
+//                    if (tryGetPath(target, out path))
+//                        paths.Add(path);
+//                }
+//
+//                var minpath = paths[0];
+//                foreach (var path in paths.Where(path => path.Count() < minpath.Count()))
+//                {
+//                    minpath = path;
+//                }
+//
+//                strategy = minpath.ToList();
+//            }
+//
+//            private bool isStrategyValid()
+//            {
+//                IEnumerable<Edge<Vertex>> path;
+//                var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, strategy[0].Source);
+//                if (tryGetPath(strategy.Last().Target, out path))
+//                {
+//                    var lPath = path.ToList();
+//                    if (lPath.Count() != strategy.Count()) return false;
+//                    for (var i = 0; i < lPath.Count(); ++i)
+//                    {
+//                        if ((!lPath[i].Source.Equals(strategy[i].Source)) ||
+//                            (!lPath[i].Target.Equals(strategy[i].Target)))
+//                            return false;
+//                    }
+//
+//                    return true;
+//                }
+//
+//                return false;
+//            }
+
+        private bool isPathFree(Vertex source)
+        {
+            IEnumerable<Edge<Vertex>> path;
+            var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, source);
+            if (tryGetPath(new Vertex(source.Item1, Config.POINT_NUMBER_1 - 1), out path))
+            {
+                if (path.Count() == Config.POINT_NUMBER_1 - 1) return true;
             }
 
+            return false;
+        }
 
-            public void DoMove()
+        private Vertex getRandomVertex(int col)
+        {
+            Vertex vertex;
+            var i = new Random().Next(-1, Config.POINT_NUMBER_0 - 1);
+            do
             {
-                if (!isStrategyValid()) ChooseStrategy();
-                _game.clickHandler(strategy[0].Source);
+                i = (i < Config.POINT_NUMBER_0 ? ++i : 0);
+                vertex = new Vertex(i, col);
+            } while (isPathFree(vertex));
+
+            return vertex;
+        }
+
+        public void DoMove()
+        {
+            Vertex source, target;
+            if (_game.MoveCount < 2)
+            {
+                source = getRandomVertex(0);
+                target = new Vertex(source.Item1, source.Item2 + 1);
+            }
+            else if (_game.MoveCount < 4)
+            {
+                target = getRandomVertex(Config.POINT_NUMBER_1 - 1);
+                source = new Vertex(target.Item1, target.Item2 - 1);
+            }
+            else
+            {
+                (source, target) = blockOpponent();
+            }
+
+            _game.clickHandler(source);
+            _game.clickHandler(target);
+
+
+//                if (!isStrategyValid()) ChooseStrategy();
 //                if (_game._availableVertices.Contains(strategy[0].Target))
 //                {
 //                    _game.clickHandler(strategy[0].Target);
@@ -452,11 +530,21 @@ namespace LinesGame
 //                {
 //                     source_points.Remove()
 //                }
-                _game.clickHandler(strategy[0].Target);
-                source_points.Remove(strategy[0].Source);
-                source_points.Add(strategy[0].Target);
-                strategy.RemoveAt(0);
-            }
+//                _game.clickHandler(strategy[0].Target);
+//                source_points.Remove(strategy[0].Source);
+//                source_points.Add(strategy[0].Target);
+//                strategy.RemoveAt(0);
+        }
+
+        private (Vertex, Vertex) blockOpponent()
+        {
+//            var opmove = _game._moveHistoryP1.Edges.Last();
+//            if (Vertex.OnHorizontal(opmove.Source, opmove.Target))
+//            {
+//                if (opmove.Source < opmove.Target)
+//            } TODO 
         }
     }
+}
+
 }
