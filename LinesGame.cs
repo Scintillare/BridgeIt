@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using QuickGraph;
 using QuickGraph.Algorithms;
 using QuickGraph.Collections;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
-using QuickGraph;
-using QuickGraph.Collections;
 
 namespace LinesGame
 {
@@ -19,8 +15,8 @@ namespace LinesGame
         public Vertex(int row, int col) : base(row, col)
         {
         }
-        
-        
+
+
         public static bool OnHorizontal(Vertex v1, Vertex v2)
         {
             return v1.Item1 == v2.Item1;
@@ -32,26 +28,18 @@ namespace LinesGame
         }
 
 
-        public static bool operator ==(Vertex v1, Vertex v2)
-        {
-            return (v1 != null && v2 != null) && (v1.Item1 == v2.Item1) && v1.Item2 == v2.Item2;
-        }
-
-        public static bool operator !=(Vertex v1, Vertex v2)
-        {
-            return !(v1 == v2);
-        }
-
         public static bool operator >(Vertex v1, Vertex v2)
-        { //BUG
-            if (v1 == v2) return false;
+        {
+            //BUG
+            if (Tuple.Equals(v1, v2)) return false;
             return ((Vertex.OnHorizontal(v1, v2) && v1.Item2 > v2.Item2) ||
                     (Vertex.OnVertical(v1, v2) && v1.Item1 > v2.Item1));
         }
 
         public static bool operator <(Vertex v1, Vertex v2)
-        { // BUG
-            if (v1 == v2) return false;
+        {
+            // BUG
+            if (Tuple.Equals(v1, v2)) return false;
             return ((Vertex.OnHorizontal(v1, v2) && v1.Item2 < v2.Item2) ||
                     (Vertex.OnVertical(v1, v2) && v1.Item1 < v2.Item1));
         }
@@ -384,50 +372,49 @@ namespace LinesGame
         {
             var mmap = IsFirstPlayerMove ? _moveMapP2 : _moveMapP1;
             var e = getEdgeBetween(IsFirstPlayerMove, source, target);
-            mmap.RemoveEdgeIf(edge => 
+            mmap.RemoveEdgeIf(edge =>
                 edge.Source.Equals(e.Source) && edge.Target.Equals(e.Target) ||
                 edge.Source.Equals(e.Target) && edge.Target.Equals(e.Source));
         }
 
-        
-        
-    public class AIPlayer
-    {
-        private LinesGame _game;
-        Thread aiThread;
-        private VertexList<Vertex> source_points;
-        private VertexList<Vertex> target_points;
 
-        private Func<Edge<Vertex>, double> edgeCost = e => 1;
-
-
-        public AIPlayer(LinesGame game)
+        public class AIPlayer
         {
-            _game = game;
-            source_points = new VertexList<Vertex>();
-            target_points = new VertexList<Vertex>();
-            foreach (var r in Enumerable.Range(0, Config.POINT_NUMBER_0))
+            private LinesGame _game;
+            Thread aiThread;
+            private VertexList<Vertex> source_points;
+            private VertexList<Vertex> target_points;
+
+            private Func<Edge<Vertex>, double> edgeCost = e => 1;
+
+
+            public AIPlayer(LinesGame game)
             {
-                source_points.Add(new Vertex(r, 0));
-                target_points.Add(new Vertex(r, Config.POINT_NUMBER_0));
+                _game = game;
+                source_points = new VertexList<Vertex>();
+                target_points = new VertexList<Vertex>();
+                foreach (var r in Enumerable.Range(0, Config.POINT_NUMBER_0))
+                {
+                    source_points.Add(new Vertex(r, 0));
+                    target_points.Add(new Vertex(r, Config.POINT_NUMBER_0));
+                }
+
+                aiThread = new Thread(run);
+                aiThread.Name = "AIThread";
+                aiThread.Start();
             }
 
-            aiThread = new Thread(run);
-            aiThread.Name = "AIThread";
-            aiThread.Start();
-        }
-
-        public void run()
-        {
-            while (aiThread.IsAlive)
+            public void run()
             {
-                Thread.Sleep(1000);
-                if (!_game.IsFirstPlayerMove)
+                while (aiThread.IsAlive)
                 {
-                    DoMove();
+                    Thread.Sleep(100);
+                    if (!_game.IsFirstPlayerMove)
+                    {
+                        DoMove();
+                    }
                 }
             }
-        }
 
 //            private void ChooseStrategy()
 //            {
@@ -473,51 +460,52 @@ namespace LinesGame
 //                return false;
 //            }
 
-        private bool isPathFree(Vertex source)
-        {
-            IEnumerable<Edge<Vertex>> path;
-            var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, source);
-            if (tryGetPath(new Vertex(source.Item1, Config.POINT_NUMBER_1 - 1), out path))
+            private bool isLineFree(int row)
             {
-                if (path.Count() == Config.POINT_NUMBER_1 - 1) return true;
+                IEnumerable<Edge<Vertex>> path;
+                Vertex source = new Vertex(row, 0);
+                Vertex target = new Vertex(row, Config.POINT_NUMBER_1 - 1);
+                var tryGetPath = _game._moveMapP2.ShortestPathsDijkstra(edgeCost, source);
+                if (tryGetPath(target, out path))
+                {
+                    if (path.Count() == Config.POINT_NUMBER_1 - 1) return true;
+                }
+
+                return false;
             }
 
-            return false;
-        }
+            private Vertex getRandomVertex(int col)
+            {
+                Vertex vertex;
+                var i = new Random().Next(-1, Config.POINT_NUMBER_0 - 1);
+                do
+                {
+                    i = (i < Config.POINT_NUMBER_0 - 1 ? ++i : 0);
+                } while (!isLineFree(i));
 
-        private Vertex getRandomVertex(int col)
-        {
-            Vertex vertex;
-            var i = new Random().Next(-1, Config.POINT_NUMBER_0 - 1);
-            do
-            {
-                i = (i < Config.POINT_NUMBER_0 ? ++i : 0);
-                vertex = new Vertex(i, col);
-            } while (isPathFree(vertex));
-
-            return vertex;
-        }
-
-        public void DoMove()
-        {
-            Vertex source, target;
-            if (_game.MoveCount < 2)
-            {
-                source = getRandomVertex(0);
-                target = new Vertex(source.Item1, source.Item2 + 1);
-            }
-            else if (_game.MoveCount < 4)
-            {
-                target = getRandomVertex(Config.POINT_NUMBER_1 - 1);
-                source = new Vertex(target.Item1, target.Item2 - 1);
-            }
-            else
-            {
-                (source, target) = blockOpponent();
+                return new Vertex(i, col);
             }
 
-            _game.clickHandler(source);
-            _game.clickHandler(target);
+            public void DoMove()
+            {
+                Vertex source, target;
+                if (_game.MoveCount < 2)
+                {
+                    source = getRandomVertex(0);
+                    target = new Vertex(source.Item1, source.Item2 + 1);
+                }
+                else if (_game.MoveCount < 4)
+                {
+                    target = getRandomVertex(Config.POINT_NUMBER_1 - 1);
+                    source = new Vertex(target.Item1, target.Item2 - 1);
+                }
+                else
+                {
+                    (source, target) = blockOpponent();
+                }
+
+                _game.clickHandler(source);
+                _game.clickHandler(target);
 
 
 //                if (!isStrategyValid()) ChooseStrategy();
@@ -534,17 +522,58 @@ namespace LinesGame
 //                source_points.Remove(strategy[0].Source);
 //                source_points.Add(strategy[0].Target);
 //                strategy.RemoveAt(0);
-        }
+            }
 
-        private (Vertex, Vertex) blockOpponent()
-        {
-//            var opmove = _game._moveHistoryP1.Edges.Last();
+            private (Vertex, Vertex) blockOpponent()
+            {
+                Edge<Vertex> predicted = tryPredictMove();
+                var edge = _game.getEdgeBetween(true, predicted.Source, predicted.Target);
 //            if (Vertex.OnHorizontal(opmove.Source, opmove.Target))
 //            {
 //                if (opmove.Source < opmove.Target)
-//            } TODO 
+//                {
+//                    Vertex prev = new Vertex(opmove.Source.Item1, opmove.Source.Item2 - 1);
+//                    Vertex next = new Vertex(opmove.Target.Item1, opmove.Target.Item2 + 1);
+//                    _game.getEdgeBetween(true, prev, opmove.Source);
+//                    _game.getEdgeBetween(true, next, opmove.Target);
+//                    
+//                }
+//            }
+
+                return (edge.Source, edge.Target);
+            }
+
+            private Edge<Vertex> tryPredictMove()
+            {
+                //_game._moveHistoryP1.ComputeDisjointSet(); XXX 
+                var targetVertices = new List<Vertex>();
+                for (int i = 0; i < Config.POINT_NUMBER_0; ++i)
+                {
+                    targetVertices.Add(new Vertex(0, i));
+                    targetVertices.Add(new Vertex(Config.POINT_NUMBER_1-1, i));
+                }
+
+                var lastEdge = _game._moveHistoryP1.Edges.Last();
+                var paths = new List<IEnumerable<Edge<Vertex>>>();
+                var tryGetPathS = _game._moveMapP1.ShortestPathsDijkstra(edgeCost, lastEdge.Source);
+                var tryGetPathT = _game._moveMapP1.ShortestPathsDijkstra(edgeCost, lastEdge.Target);
+                foreach (var targetVertex in targetVertices)
+                {
+                    IEnumerable<Edge<Vertex>> path;
+                    if (tryGetPathS(targetVertex, out path))
+                    {
+                        paths.Add(path);
+                    }
+                    if (tryGetPathT(targetVertex, out path))
+                    {
+                        paths.Add(path);
+                    }
+                }
+
+                var minpath = paths.OrderBy(path => path.Count()).First();
+
+                return minpath.First();
+            }
         }
     }
-}
-
 }
