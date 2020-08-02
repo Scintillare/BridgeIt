@@ -261,7 +261,8 @@ namespace LinesGame
 
             var sourcePoints = new List<Vertex>();
             var targetPoints = new List<Vertex>();
-            int start = 0, end = Config.POINT_NUMBER_1 - 1;
+            const int start = 0;
+            const int end = Config.POINT_NUMBER_1 - 1;
             var graph = !IsFirstPlayerMove ? _moveHistoryP1 : _moveHistoryP2;
             foreach (var point in graph.Vertices)
             {
@@ -301,7 +302,12 @@ namespace LinesGame
                     return;
                 }
 
-                if (!_availableVertices.Contains(v)) return;
+                if (!_availableVertices.Contains(v))
+                {
+                    _clickedVertex = v;
+                    _updateAvailableMoves();
+                    return;
+                }
                 _doMove(v);
                 if (_isGameOver())
                     IsGameOver = true;
@@ -437,7 +443,6 @@ namespace LinesGame
 
             private Vertex getRandomVertex(int col)
             {
-                Vertex vertex;
                 var i = new Random().Next(-1, Config.POINT_NUMBER_0 - 1);
                 do
                 {
@@ -447,7 +452,7 @@ namespace LinesGame
                 return new Vertex(i, col);
             }
 
-            public void DoMove()
+            private void DoMove()
             {
                 Vertex source, target;
                 if (_game.MoveCount < 2)
@@ -473,14 +478,13 @@ namespace LinesGame
             {
                 var f_paths = tryPredictMove(true);
                 var s_paths = tryPredictMove(false);
-                var opt_moves = tryFindOptimal(f_paths, s_paths);
+                var opt_moves = TryFindOptimal(f_paths, s_paths);
                 var edge = opt_moves[opt_moves.Count() > 1 ? new Random().Next(opt_moves.Count() - 1) : 0];
-
-
+                
                 return (edge.Source, edge.Target);
             }
 
-            private List<Edge<Vertex>> tryFindOptimal(List<IEnumerable<Edge<Vertex>>> opponentPaths,
+            private List<Edge<Vertex>> TryFindOptimal(List<IEnumerable<Edge<Vertex>>> opponentPaths,
                 List<IEnumerable<Edge<Vertex>>> playerPaths)
             {
                 List<Edge<Vertex>> optimalMoves = new List<Edge<Vertex>>();
